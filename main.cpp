@@ -36,7 +36,7 @@ uint8_t rx_buffer[30];
 /*
  * Sets up an application dependent transmission timer in ms. Used only when Duty Cycling is off for testing
  */
-#define TX_TIMER                        10000
+#define TX_TIMER                        30000
 
 /**
  * Maximum number of events for the event queue.
@@ -48,7 +48,7 @@ uint8_t rx_buffer[30];
 /**
  * Maximum number of retries for CONFIRMED messages before giving up
  */
-#define CONFIRMED_MSG_RETRY_COUNTER     3
+#define CONFIRMED_MSG_RETRY_COUNTER     5
 
 /**
  * Dummy pin for dummy sensor
@@ -87,6 +87,8 @@ static LoRaWANInterface lorawan(radio);
  */
 static lorawan_app_callbacks_t callbacks;
 
+
+mbed::DigitalOut txled(PB_0);
 /**
  * Entry point for application
  */
@@ -166,10 +168,10 @@ static void send_message()
 
     packet_len = sprintf((char *) tx_buffer, "Dummy Sensor Value is %d",
                          sensor_value);
-
+    txled = 1;
     retcode = lorawan.send(MBED_CONF_LORA_APP_PORT, tx_buffer, packet_len,
-                           MSG_UNCONFIRMED_FLAG);
-
+                           MSG_CONFIRMED_FLAG);
+    txled = 0;
     if (retcode < 0) {
         retcode == LORAWAN_STATUS_WOULD_BLOCK ? printf("send - WOULD BLOCK\r\n")
         : printf("\r\n send() - Error code %d \r\n", retcode);
