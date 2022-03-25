@@ -85,22 +85,22 @@ DigitalOut txled(LED_PIN);
 // Maximum number of element the application buffer can contain
 #define MAXIMUM_BUFFER_SIZE                                                  30
 
-static BufferedSerial serial_port(UART_TX, UART_RX);
+static BufferedSerial UART_port(UART2_TX, UART2_RX);
 char serial_buf[MAXIMUM_BUFFER_SIZE];
 
 
-
-// // Specify different pins to test printing on UART other than the console UART.
-// #define TARGET_TX_PIN                                                     UART_TX
-// #define TARGET_RX_PIN                                                     UART_RX
-
-// // Create a BufferedSerial object to be used by the system I/O retarget code.
-// static BufferedSerial serial_port(TARGET_TX_PIN, TARGET_RX_PIN, 9600);
-
-// FileHandle *mbed::mbed_override_console(int fd)
-// {
-//     return &serial_port;
-// }
+// Change console UART port to UART1
+// Specify different pins to test printing on UART other than the console UART.
+#define TARGET_TX_PIN                                                     UART_TX
+#define TARGET_RX_PIN                                                     UART_RX
+#define CONSOLE_BUFFER_SIZE                                               32
+// Create a BufferedSerial object to be used by the system I/O retarget code.
+static BufferedSerial console_port(TARGET_TX_PIN, TARGET_RX_PIN, 115200);
+static char console_buffer[CONSOLE_BUFFER_SIZE];
+FileHandle *mbed::mbed_override_console(int fd)
+{
+    return &console_port;
+}
 
 // volatile bool flag_rx; 
 // volatile uint8_t n = 0;
@@ -111,16 +111,26 @@ char serial_buf[MAXIMUM_BUFFER_SIZE];
 // }
 
 
+DigitalIn safe_button(PB_1);
+void safe_mode();
+
+
 /**
  * Entry point for application
  */
 int main(void)
 {
-    serial_port.set_baud(115200);
+    safe_button.mode(PullUp);
+    
+    UART_port.set_baud(115200);
     //serial_port.attach(&save_to_buf, RxIrq);
     // setup tracing
     setup_trace();
 
+    if (safe_button.read()==0){
+        safe_mode();
+        return 0;
+    }
     // stores the status of a call to LoRaWAN protocol
     lorawan_status_t retcode;
 
@@ -179,13 +189,7 @@ static void send_message()
     uint16_t packet_len;
     int16_t retcode;
     uint32_t num;
-    if (serial_port.readable()){
-        num = serial_port.read(serial_buf, sizeof(serial_buf));
-        printf("\r\n Flag up. num = %d\r\n", num);
-    } else{
-        printf("\r\n Flag not up \r\n");
-        return;
-    }
+    sprintf(serial_buf,"Static test");
 
     printf("\r\n Message for transmit is '%s' \r\n", serial_buf);
     
@@ -288,6 +292,25 @@ static void lora_event_handler(lorawan_event_t event)
             break;
         default:
             MBED_ASSERT("Unknown Event");
+    }
+}
+
+void safe_mode(){
+    char buffer[CONSOLE_BUFFER_SIZE] = {0};
+    uint8_t counter = 0;
+    memset(console_buffer, '\0', sizeof(console_buffer));
+    printf("SAFE MODE!!!\r\n");
+    while (1){
+        if (uint8_t num = console_port.read(console_buffer, sizeof(buffer))){
+            for (uint8_t i=0; i<num; i++) {
+                buffer[counter] = console_buffer[i];
+            }
+            console_port.write(console_buffer, num);
+            if (counter>=1 && buffer[counter] == '\n' && buffer[counter-1] == '\r') {
+                printf("Command = %s \r\n", buffer);
+            }
+            counter++;
+        }
     }
 }
 
