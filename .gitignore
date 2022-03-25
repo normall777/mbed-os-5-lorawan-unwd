@@ -41,3 +41,5 @@ mbed_config.h
 BUILD/
 cmake_build/
 .mbed
+BUILD
+mbed-os
