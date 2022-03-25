@@ -4,11 +4,16 @@
     },
     "target_overrides": {
         "*": {
+            "target.printf_lib": "std",
+
             "platform.stdio-convert-newlines": true,
             "platform.stdio-baud-rate": 115200,
             "platform.default-serial-baud-rate": 115200,
+            
             "mbed-trace.enable": true,
             "mbed-trace.max-level": "TRACE_LEVEL_DEBUG",
+
+            "lora.adr-on" : true,
             "lora.over-the-air-activation": true,
             "lora.duty-cycle-on": false,
             "lora.phy": "EU868",
@@ -29,7 +34,7 @@
             "sx1276-lora-driver.dio3":           "PB_6",
             "sx1276-lora-driver.dio4":           "PB_7",
             "sx1276-lora-driver.dio5":           "PB_5",
-            "sx1276-lora-driver.rf-switch-ctl1":     "PA_11"
+            "sx1276-lora-driver.rf-switch-ctl1":    "PA_11"
         }
     },
     

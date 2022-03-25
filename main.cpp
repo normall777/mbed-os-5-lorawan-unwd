@@ -19,6 +19,7 @@
 #include "lorawan/LoRaWANInterface.h"
 #include "lorawan/system/lorawan_data_structures.h"
 #include "events/EventQueue.h"
+#include "mbed.h"
 
 // Application helpers
 #include "DummySensor.h"
@@ -51,16 +52,6 @@ uint8_t rx_buffer[30];
 #define CONFIRMED_MSG_RETRY_COUNTER     5
 
 /**
- * Dummy pin for dummy sensor
- */
-#define PC_9                            0
-
-/**
- * Dummy sensor class object
- */
-DS1820  ds1820(PC_9);
-
-/**
 * This event queue is the global event queue for both the
 * application and stack. To conserve memory, the stack is designed to run
 * in the same thread as the application and the application is responsible for
@@ -87,13 +78,46 @@ static LoRaWANInterface lorawan(radio);
  */
 static lorawan_app_callbacks_t callbacks;
 
+#define LED_PIN                         PB_0
 
-mbed::DigitalOut txled(PB_0);
+DigitalOut txled(LED_PIN);
+
+// Maximum number of element the application buffer can contain
+#define MAXIMUM_BUFFER_SIZE                                                  30
+
+static BufferedSerial serial_port(UART_TX, UART_RX);
+char serial_buf[MAXIMUM_BUFFER_SIZE];
+
+
+
+// // Specify different pins to test printing on UART other than the console UART.
+// #define TARGET_TX_PIN                                                     UART_TX
+// #define TARGET_RX_PIN                                                     UART_RX
+
+// // Create a BufferedSerial object to be used by the system I/O retarget code.
+// static BufferedSerial serial_port(TARGET_TX_PIN, TARGET_RX_PIN, 9600);
+
+// FileHandle *mbed::mbed_override_console(int fd)
+// {
+//     return &serial_port;
+// }
+
+// volatile bool flag_rx; 
+// volatile uint8_t n = 0;
+// void save_to_buf(){
+//     char c = serial_port.getc();
+
+//     flag_rx = true;
+// }
+
+
 /**
  * Entry point for application
  */
 int main(void)
 {
+    serial_port.set_baud(115200);
+    //serial_port.attach(&save_to_buf, RxIrq);
     // setup tracing
     setup_trace();
 
@@ -154,24 +178,25 @@ static void send_message()
 {
     uint16_t packet_len;
     int16_t retcode;
-    int32_t sensor_value;
-
-    if (ds1820.begin()) {
-        ds1820.startConversion();
-        sensor_value = ds1820.read();
-        printf("\r\n Dummy Sensor Value = %d \r\n", sensor_value);
-        ds1820.startConversion();
-    } else {
-        printf("\r\n No sensor found \r\n");
+    uint32_t num;
+    if (serial_port.readable()){
+        num = serial_port.read(serial_buf, sizeof(serial_buf));
+        printf("\r\n Flag up. num = %d\r\n", num);
+    } else{
+        printf("\r\n Flag not up \r\n");
         return;
     }
 
-    packet_len = sprintf((char *) tx_buffer, "Dummy Sensor Value is %d",
-                         sensor_value);
+    printf("\r\n Message for transmit is '%s' \r\n", serial_buf);
+    
+    packet_len = sprintf((char *) tx_buffer, "%s",
+                         serial_buf);
+    memset(serial_buf, '\0', sizeof(serial_buf));
     txled = 1;
     retcode = lorawan.send(MBED_CONF_LORA_APP_PORT, tx_buffer, packet_len,
                            MSG_CONFIRMED_FLAG);
     txled = 0;
+
     if (retcode < 0) {
         retcode == LORAWAN_STATUS_WOULD_BLOCK ? printf("send - WOULD BLOCK\r\n")
         : printf("\r\n send() - Error code %d \r\n", retcode);
@@ -233,9 +258,6 @@ static void lora_event_handler(lorawan_event_t event)
             break;
         case TX_DONE:
             printf("\r\n Message Sent to Network Server \r\n");
-            if (MBED_CONF_LORA_DUTY_CYCLE_ON) {
-                send_message();
-            }
             break;
         case TX_TIMEOUT:
         case TX_ERROR:
