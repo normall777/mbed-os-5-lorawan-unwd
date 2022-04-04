@@ -189,7 +189,13 @@ static void send_message()
     uint16_t packet_len;
     int16_t retcode;
     uint32_t num;
-    sprintf(serial_buf,"Static test");
+    if (UART_port.readable()){
+        num = UART_port.read(serial_buf, sizeof(serial_buf));
+        printf("\r\n Flag up. num = %d\r\n", num);
+    } else{
+        printf("\r\n Flag not up \r\n");
+        return;
+    }
 
     printf("\r\n Message for transmit is '%s' \r\n", serial_buf);
     
